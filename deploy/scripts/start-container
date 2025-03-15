@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+if [ "$SUPERVISOR_PHP_USER" != "root" ] && [ "$SUPERVISOR_PHP_USER" != "sail" ]; then
+    echo "You should set SUPERVISOR_PHP_USER to either 'sail' or 'root'."
+    exit 1
+fi
+
+if [ ! -z "$WWWUSER" ]; then
+    usermod -u $WWWUSER sail
+fi
+
+if [ ! -d /.composer ]; then
+    mkdir /.composer
+fi
+
+chmod -R ugo+rw /.composer
+
+# Run deploy script with retries
+max_retries=3
+attempt=1
+
+while [ $attempt -le $max_retries ]; do
+    echo "Running deploy script (Attempt $attempt/$max_retries)"
+    bash /usr/local/bin/deploy && break
+    
+    attempt=$((attempt + 1))
+    sleep 15
+done
+
+if [ $attempt -gt $max_retries ]; then
+    echo "Deploy script failed after $max_retries attempts"
+    exit 1
+fi
+
+
+if [ $# -gt 0 ]; then
+    if [ "$SUPERVISOR_PHP_USER" = "root" ]; then
+        exec "$@"
+    else
+        exec gosu $WWWUSER "$@"
+    fi
+else
+    exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+fi

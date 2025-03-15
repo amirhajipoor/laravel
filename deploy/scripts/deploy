@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Get dependencies
+composer install --optimize-autoloader
+
+# Install Octane
+php artisan octane:install --server=frankenphp -n --force
+
+# Migrate
+php artisan migrate --force
+
+php artisan env
+php artisan optimize:clear
+php artisan optimize
+
+# Caching
+php artisan route:cache
+php artisan config:cache
+
+# Optimizing Filament
+php artisan filament:optimize-clear
+php artisan filament:optimize
